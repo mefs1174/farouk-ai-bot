@@ -1,130 +1,343 @@
+!pip install pyTelegramBotAPI
+
 import telebot
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
-from config import BOT_TOKEN, PHONE_VODAFONE_CASH, WHATSAPP_LINK, VEO_BOT_LINK
+import time
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
+
+BOT_TOKEN = "8883224646:AAE5H6pgKhpbCSpCSwgV8dDen7BSUAo9b5Y"          # توكن البوت الحقيقي من BotFather
+ADMIN_CHAT_ID = "884607338"  # الآي دي الشخصي الصحيح الخاص بك من @userinfobot
+
+PHONE_VODAFONE_CASH = "01025560393"
+WHATSAPP_LINK = "https://wa.me/201093001204"
 
 bot = telebot.TeleBot(BOT_TOKEN)
 
-# --- القائمة الرئيسية ---
-def main_menu_keyboard():
-    markup = InlineKeyboardMarkup(row_width=2)
+user_temp_data = {}
+admin_reply_targets = {}
+all_users_set = set()
+
+def get_reply_keyboard():
+    markup = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    markup.add(KeyboardButton("🏠 القائمة الرئيسية"), KeyboardButton("📞 الدعم"))
+    return markup
+
+def admin_control_keyboard():
+    markup = ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
+    markup.add(KeyboardButton("📢 إرسال إشعار لجميع المستخدمين"))
+    return markup
+
+def main_menu():
+    markup = InlineKeyboardMarkup(row_width=1)
     markup.add(
-        InlineKeyboardButton("💎 اشتراكات البرامج والمواقع", callback_data="sub_menu"),
-        InlineKeyboardButton("📈 تزويد المتابعين والتفاعل", callback_data="smm_menu")
-    )
-    markup.add(
-        InlineKeyboardButton("🚀 باقات إدارة السوشيال ميديا", callback_data="management_menu"),
-        InlineKeyboardButton("🎨 التصميم، المواقع والفيديوهات", callback_data="design_menu")
-    )
-    markup.add(
-        InlineKeyboardButton("👤 حسابي وطريقة الدفع", callback_data="account_menu"),
-        InlineKeyboardButton("📞 الدعم الفني وتواصل معنا", callback_data="support")
+        InlineKeyboardButton("📈 1. قسم التزويد (متابعين، لايكات، مشاهدات)", callback_data="cat_smm"),
+        InlineKeyboardButton("💎 2. قسم الاشتراكات (برامج ومواقع)", callback_data="cat_subs"),
+        InlineKeyboardButton("🎨 3. قسم تصميم صور وفيديو", callback_data="cat_design_media"),
+        InlineKeyboardButton("🌐 4. قسم تصميم المواقع", callback_data="cat_websites"),
+        InlineKeyboardButton("🚀 5. قسم إدارة السوشيال ميديا", callback_data="cat_management")
     )
     return markup
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
+    chat_id = message.chat.id
+    all_users_set.add(chat_id)
+    
+    if str(chat_id) == str(ADMIN_CHAT_ID):
+        bot.send_message(chat_id, "أهلاً بك يا باشمهندس في لوحة تحكم الآدمن 👑\nاستخدم الزر أدناه لإرسال إشعار لجميع العملاء:", reply_markup=admin_control_keyboard())
+        return
+        
     welcome_text = (
         "أهلاً بيك في **Farouk AI Studio** 🚀\n"
         "وكالتك الشاملة لخدمات السوشيال ميديا، الذكاء الاصطناعي، وتطوير الأعمال.\n\n"
-        "اختر الخدمة المطلوبة من القائمة أدناه:"
+        "اختر القسم المطلوب من الأزرار أدناه:"
     )
-    bot.send_message(message.chat.id, welcome_text, parse_mode="Markdown", reply_markup=main_menu_keyboard())
+    bot.send_message(chat_id, welcome_text, parse_mode="Markdown", reply_markup=main_menu())
+    bot.send_message(chat_id, "استخدم الأزرار بالأسفل للتنقل السريع:", reply_markup=get_reply_keyboard())
 
-# --- معالجة الأزرار (Callbacks) ---
-@bot.callback_query_handler(func=lambda call: True)
+# --- نظام إرسال الإشعار الجماعي الآمن ---
+@bot.message_handler(func=lambda message: str(message.chat.id) == str(ADMIN_CHAT_ID) and message.text == "📢 إرسال إشعار لجميع المستخدمين")
+def broadcast_prompt(message):
+    msg = bot.send_message(message.chat.id, "✍️ اكتب رسالة الإشعار التي تريد إرسالها لجميع العملاء الآن:")
+    bot.register_next_step_handler(msg, execute_broadcast)
+
+def execute_broadcast(message):
+    chat_id = message.chat.id
+    if str(chat_id) != str(ADMIN_CHAT_ID):
+        return
+        
+    broadcast_text = message.text
+    success_count = 0
+    fail_count = 0
+    
+    bot.send_message(chat_id, f"⏳ جاري بدء البث إلى {len(all_users_set)} مستخدم مسجل...")
+    
+    for uid in all_users_set:
+        if str(uid) == str(ADMIN_CHAT_ID):
+            continue
+        try:
+            bot.send_message(uid, f"📢 **إشعار هام من إدارة Farouk AI Studio:**\n\n{broadcast_text}", parse_mode="Markdown")
+            success_count += 1
+            time.sleep(0.5)  # مهلة زمنية آمنة لمنع حظر تليجرام
+        except Exception as e:
+            print(f"Failed to send to {uid}: {e}")
+            fail_count += 1
+            
+    bot.send_message(chat_id, f"✅ **تم الانتهاء من الإرسال بنجاح!**\n- تم الإرسال لـ: {success_count} عميل\n- فشل الإرسال لـ: {fail_count}", parse_mode="Markdown", reply_markup=admin_control_keyboard())
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("reply_to_"))
+def ask_admin_reply(call):
+    chat_id = call.message.chat.id
+    if str(chat_id) != str(ADMIN_CHAT_ID):
+        return
+    client_id = call.data.split("_")[2]
+    admin_reply_targets[chat_id] = client_id
+    msg = bot.send_message(chat_id, f"✍️ اكتب رسالتك الآن للعميل (رقم العميل: `{client_id}`):", parse_mode="Markdown")
+    bot.register_next_step_handler(msg, send_message_to_client)
+
+def send_message_to_client(message):
+    chat_id = message.chat.id
+    if str(chat_id) != str(ADMIN_CHAT_ID):
+        return
+    client_id = admin_reply_targets.get(chat_id)
+    reply_text = message.text
+    if client_id:
+        try:
+            bot.send_message(client_id, f"📢 **رد من إدارة Farouk AI Studio:**\n\n{reply_text}")
+            bot.send_message(chat_id, f"✅ تم إرسال الرد بنجاح إلى العميل ذو الـ ID: `{client_id}`", parse_mode="Markdown")
+        except Exception as e:
+            bot.send_message(chat_id, f"❌ حدث خطأ أثناء إرسال الرسالة:\n`{e}`", parse_mode="Markdown")
+
+@bot.message_handler(func=lambda msg: msg.text in ["🏠 القائمة الرئيسية", "📞 الدعم"])
+def persistent_handler(message):
+    chat_id = message.chat.id
+    if str(chat_id) == str(ADMIN_CHAT_ID):
+        return
+    if message.text == "🏠 القائمة الرئيسية":
+        bot.send_message(chat_id, "القائمة الرئيسية:", reply_markup=main_menu())
+    elif message.text == "📞 الدعم":
+        bot.send_message(chat_id, f"📞 للتواصل المباشر مع الدعم الفني عبر واتساب:\n{WHATSAPP_LINK}", disable_web_page_preview=True)
+
+@bot.callback_query_handler(func=lambda call: not call.data.startswith("reply_to_"))
 def callback_handler(call):
     chat_id = call.message.chat.id
+    data = call.data
     
-    if call.data == "main_menu":
-        bot.edit_message_text("القائمة الرئيسية:", chat_id, call.message.message_id, reply_markup=main_menu_keyboard())
+    if data == "main_menu":
+        bot.edit_message_text("القائمة الرئيسية:", chat_id, call.message.message_id, reply_markup=main_menu())
+        
+    elif data == "cat_smm":
+        markup = InlineKeyboardMarkup(row_width=1)
+        markup.add(
+            InlineKeyboardButton("📘 خدمات فيسبوك", callback_data="smm_fb"),
+            InlineKeyboardButton("📸 خدمات إنستجرام", callback_data="smm_ig"),
+            InlineKeyboardButton("🎵 خدمات تيك توك", callback_data="smm_tt"),
+            InlineKeyboardButton("▶️ خدمات يوتيوب", callback_data="smm_yt"),
+            InlineKeyboardButton("⬅️ رجوع للقائمة الرئيسية", callback_data="main_menu")
+        )
+        bot.edit_message_text("📈 **قسم تزويد المتابعين والتفاعل:**\nاختر المنصة المطلوبة:", chat_id, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
+
+    elif data == "smm_fb":
+        markup = InlineKeyboardMarkup(row_width=1)
+        markup.add(
+            InlineKeyboardButton("👥 متابعين فيسبوك (سعر الـ 1000)", callback_data="buy_fb_followers"),
+            InlineKeyboardButton("❤️ لايكات / تفاعل فيسبوك", callback_data="buy_fb_likes"),
+            InlineKeyboardButton("👁️ مشاهدات فيسبوك", callback_data="buy_fb_views"),
+            InlineKeyboardButton("💬 تعليقات فيسبوك", callback_data="buy_fb_comments"),
+            InlineKeyboardButton("🎯 تحقيق شروط ربح فيسبوك", callback_data="buy_fb_monetize"),
+            InlineKeyboardButton("⬅️ رجوع", callback_data="cat_smm")
+        )
+        bot.edit_message_text("📘 **خدمات فيسبوك:**", chat_id, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
+
+    elif data == "smm_ig":
+        markup = InlineKeyboardMarkup(row_width=1)
+        markup.add(
+            InlineKeyboardButton("👥 متابعين إنستجرام (سعر الـ 1000)", callback_data="buy_ig_followers"),
+            InlineKeyboardButton("❤️ لايكات إنستجرام", callback_data="buy_ig_likes"),
+            InlineKeyboardButton("👁️ مشاهدات إنستجرام", callback_data="buy_ig_views"),
+            InlineKeyboardButton("💬 تعليقات إنستجرام", callback_data="buy_ig_comments"),
+            InlineKeyboardButton("⬅️ رجوع", callback_data="cat_smm")
+        )
+        bot.edit_message_text("📸 **خدمات إنستجرام:**", chat_id, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
+
+    elif data == "smm_tt":
+        markup = InlineKeyboardMarkup(row_width=1)
+        markup.add(
+            InlineKeyboardButton("👥 متابعين تيك توك (سعر الـ 1000)", callback_data="buy_tt_followers"),
+            InlineKeyboardButton("❤️ لايكات تيك توك", callback_data="buy_tt_likes"),
+            InlineKeyboardButton("👁️ مشاهدات تيك توك", callback_data="buy_tt_views"),
+            InlineKeyboardButton("💬 تعليقات تيك توك", callback_data="buy_tt_comments"),
+            InlineKeyboardButton("⬅️ رجوع", callback_data="cat_smm")
+        )
+        bot.edit_message_text("🎵 **خدمات تيك توك:**", chat_id, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
+
+    elif data == "smm_yt":
+        markup = InlineKeyboardMarkup(row_width=1)
+        markup.add(
+            InlineKeyboardButton("▶️ مشتركين يوتيوب (سعر الـ 1000)", callback_data="buy_yt_subs"),
+            InlineKeyboardButton("👍 لايكات يوتيوب", callback_data="buy_yt_likes"),
+            InlineKeyboardButton("👁️ مشاهدات يوتيوب", callback_data="buy_yt_views"),
+            InlineKeyboardButton("💬 تعليقات يوتيوب", callback_data="buy_yt_comments"),
+            InlineKeyboardButton("⬅️ رجوع", callback_data="cat_smm")
+        )
+        bot.edit_message_text("▶️ **خدمات يوتيوب:**", chat_id, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
+
+    elif data == "cat_subs":
+        markup = InlineKeyboardMarkup(row_width=1)
+        markup.add(
+            InlineKeyboardButton("• شات GPT بلس (شهر) - 1040 ج", callback_data="buy_chatgpt"),
+            InlineKeyboardButton("• جيميناي بلس (6 شهور) - 61 ج", callback_data="buy_gemini6"),
+            InlineKeyboardButton("• جيميناي برو (18 شهر) - 162 ج", callback_data="buy_gemini18"),
+            InlineKeyboardButton("• كاب كات برو (شهر) - 162 ج", callback_data="buy_capcut1m"),
+            InlineKeyboardButton("• كاب كات برو (7 أيام) - 61 ج", callback_data="buy_capcut7d"),
+            InlineKeyboardButton("• أدوبي إكسبريس (12 شهر) - 61 ج", callback_data="buy_adobe"),
+            InlineKeyboardButton("• كانفا برو (3 سنين) - 27 ج", callback_data="buy_canva"),
+            InlineKeyboardButton("• كورسيرا بريميوم (12 شهر) - 257 ج", callback_data="buy_coursera"),
+            InlineKeyboardButton("⬅️ رجوع للقائمة الرئيسية", callback_data="main_menu")
+        )
+        bot.edit_message_text("💎 **قسم اشتراكات البرامج والمواقع:**\nاختر الخدمة المطلوبة:", chat_id, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
+
+    elif data == "cat_design_media":
+        markup = InlineKeyboardMarkup(row_width=1)
+        markup.add(
+            InlineKeyboardButton("• تصميم بوست - 30 ج (20 ج لو أكثر من 10)", callback_data="buy_design_post"),
+            InlineKeyboardButton("• فيديو AI (30 ثانية) - 50 ج", callback_data="buy_ai_video_30s"),
+            InlineKeyboardButton("• فيديو AI (دقيقة) - 70 ج", callback_data="buy_ai_video_1m"),
+            InlineKeyboardButton("⬅️ رجوع للقائمة الرئيسية", callback_data="main_menu")
+        )
+        bot.edit_message_text("🎨 **قسم تصميم صور وفيديو:**\nاختر الخدمة المطلوبة:", chat_id, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
+
+    elif data == "cat_websites":
+        markup = InlineKeyboardMarkup(row_width=1)
+        markup.add(
+            InlineKeyboardButton("• صفحة هبوط لمنتج - 50 ج", callback_data="buy_landing"),
+            InlineKeyboardButton("• موقع شركة (5 صفحات) - 300 ج", callback_data="buy_corporate"),
+            InlineKeyboardButton("• متجر إلكتروني (دفع يدوي) - 500 ج", callback_data="buy_store"),
+            InlineKeyboardButton("⬅️ رجوع للقائمة الرئيسية", callback_data="main_menu")
+        )
+        bot.edit_message_text("🌐 **قسم تصميم المواقع:**\nاختر الخدمة المطلوبة:", chat_id, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
+
+    elif data == "cat_management":
+        markup = InlineKeyboardMarkup(row_width=1)
+        markup.add(
+            InlineKeyboardButton("• الباقة الأساسية - 1800 ج", callback_data="buy_pkg_basic"),
+            InlineKeyboardButton("• الباقة المتوسطة - 4500 ج", callback_data="buy_pkg_med"),
+            InlineKeyboardButton("• الباقة الكاملة - 6000 ج", callback_data="buy_pkg_full"),
+            InlineKeyboardButton("⬅️ رجوع للقائمة الرئيسية", callback_data="main_menu")
+        )
+        bot.edit_message_text("🚀 **قسم باقات إدارة السوشيال ميديا:**\nاختر الباقة المناسبة:", chat_id, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
+
+    elif data.startswith("buy_"):
+        services = {
+            "buy_fb_followers": ("متابعين فيسبوك (للكل 1000)", "حسب السعر المتفق عليه", "جودة عالية مع ضمان 90 يوم."),
+            "buy_fb_likes": ("لايكات / تفاعل فيسبوك (للكل 1000)", "حسب السعر المتفق عليه", "تفاعل حقيقي مع ضمان 30 يوم."),
+            "buy_fb_views": ("مشاهدات فيسبوك (للكل 1000)", "حسب السعر المتفق عليه", "مشاهدات سريعة بضمان 30 يوم."),
+            "buy_fb_comments": ("تعليقات فيسبوك (للكل 1000)", "حسب السعر المتفق عليه", "تعليقات مخصصة بضمان 30 يوم."),
+            "buy_fb_monetize": ("تحقيق شروط ربح فيسبوك", "84 جنيه", "إتمام شروط 60 ألف دقيقة والمتابعين مع ضمان 90 يوم."),
+            
+            "buy_ig_followers": ("متابعين إنستجرام (للكل 1000)", "341 جنيه", "متابعين بجودة ممتازة وضمان 90 يوم."),
+            "buy_ig_likes": ("لايكات إنستجرام (للكل 1000)", "حسب السعر المتفق عليه", "لايكات سريعة بضمان 30 يوم."),
+            "buy_ig_views": ("مشاهدات إنستجرام (للكل 1000)", "حسب السعر المتفق عليه", "مشاهدات ريلز وفيديوهات بضمان 30 يوم."),
+            "buy_ig_comments": ("تعليقات إنستجرام (للكل 1000)", "حسب السعر المتفق عليه", "تعليقات تفاعلية بضمان 30 يوم."),
+
+            "buy_tt_followers": ("متابعين تيك توك (للكل 1000)", "328 جنيه", "متابعين حقيقيين ومتفاعلين بضمان 90 يوم."),
+            "buy_tt_likes": ("لايكات تيك توك (للكل 1000)", "حسب السعر المتفق عليه", "لايكات سريعة بضمان 30 يوم."),
+            "buy_tt_views": ("مشاهدات تيك توك", "6.5 جنيه لكل 1000", "مشاهدات سريعة لرفع رينج الفيديو بضمان 30 يوم."),
+            "buy_tt_comments": ("تعليقات تيك توك (للكل 1000)", "حسب السعر المتفق عليه", "تعليقات حقيقية بضمان 30 يوم."),
+
+            "buy_yt_subs": ("مشتركين يوتيوب (للكل 1000)", "2989 جنيه", "مشتركين حقيقيين لرفع مستوى القناة بضمان سنة (365 يوم)."),
+            "buy_yt_likes": ("لايكات يوتيوب (للكل 1000)", "حسب السعر المتفق عليه", "لايكات آمنة بضمان 30 يوم."),
+            "buy_yt_views": ("مشاهدات يوتيوب (للكل 1000)", "حسب السعر المتفق عليه", "مشاهدات حقيقية للساعات بضمان 90 يوم."),
+            "buy_yt_comments": ("تعليقات يوتيوب (للكل 1000)", "حسب السعر المتفق عليه", "تعليقات مناسبة للمحتوى بضمان 30 يوم."),
+
+            "buy_chatgpt": ("شات GPT بلس (شهر)", "1040 جنيه", "استلام فوري لحساب جاهز بضمان 30 يوم."),
+            "buy_gemini6": ("جيميناي بلس (6 شهور)", "61 جنيه", "رابط تفعيل فوري بدون ضمان."),
+            "buy_gemini18": ("جيميناي برو (18 شهر)", "162 جنيه", "رابط تفعيل فوري بدون ضمان."),
+            "buy_capcut1m": ("كاب كات برو (شهر)", "162 جنيه", "استلام حساب جاهز بضمان المدة كاملة."),
+            "buy_capcut7d": ("كاب كات برو (7 أيام)", "61 جنيه", "استلام حساب جاهز بضمان 7 أيام."),
+            "buy_adobe": ("أدوبي إكسبريس (12 شهر)", "61 جنيه", "تفعيل بضمان شهر."),
+            "buy_canva": ("كانفا برو (3 سنين)", "27 جنيه", "دعوة مباشرة لحسابك الشخصي بضمان 3 سنوات."),
+            "buy_coursera": ("كورسيرا بريميوم (12 شهر)", "257 جنيه", "وصول لجميع الدورات والشهادات (بدون ضمان)."),
+
+            "buy_design_post": ("تصميم بوست سوشيال ميديا", "30 ج (20 ج لأكثر من 10)", "تصميم احترافي مقاسات السوشيال ميديا بدقة عالية."),
+            "buy_ai_video_30s": ("فيديو AI (30 ثانية)", "50 جنيه", "فيديو سينمائي احترافي مولد بالذكاء الاصطناعي."),
+            "buy_ai_video_1m": ("فيديو AI (دقيقة)", "70 جنيه", "فيديو سينمائي كامل مدته دقيقة بالذكاء الاصطناعي."),
+
+            "buy_landing": ("صفحة هبوط (Landing Page)", "50 جنيه", "صفحة تعريفية وتصميم مميز لمنتج واحد."),
+            "buy_corporate": ("موقع شركة (5 صفحات)", "300 جنيه", "موقع تعريفى متكامل للشركات والأعمال."),
+            "buy_store": ("متجر إلكتروني (دفع يدوي)", "500 جنيه", "متجر إلكتروني متكامل لعرض المنتجات واستقبال الطلبات."),
+
+            "buy_pkg_basic": ("الباقة الأساسية للإدارة", "1800 جنيه", "12 منشور، تصميم، وجدولة."),
+            "buy_pkg_med": ("الباقة المتوسطة للإدارة", "4500 جنيه", "20 منشور + 4 ريلز + ستوريز وردود."),
+            "buy_pkg_full": ("الباقة الكاملة للإدارة", "6000 جنيه", "بوست يومي + ريلز + خدمة عملاء شاملة.")
+        }
+        
+        info = services.get(data, ("خدمة رقمية", "حسب الطلب", "تفاصيل الخدمة متاحة."))
+        user_temp_data[chat_id] = {"service": info[0], "price": info[1]}
+        
+        text = (
+            f"🛒 **تفاصيل الطلب:**\n\n"
+            f"📌 **الخدمة:** {info[0]}\n"
+            f"💰 **السعر:** {info[1]}\n"
+            f"🛡️ **الضمان:** {info[2]}\n\n"
+            f"💳 **طريقة الدفع:**\n"
+            f"يرجى تحويل القيمة المطلوبة على فودافون كاش:\n"
+            f"`{PHONE_VODAFONE_CASH}`\n\n"
+            f"بعد التحويل، اضغط على زر **تأكيد الدفع** بالأسفل:"
+        )
+        markup = InlineKeyboardMarkup()
+        markup.add(InlineKeyboardButton("✅ تأكيد الدفع وإدخال البيانات", callback_data="ask_amount"))
+        markup.add(InlineKeyboardButton("⬅️ رجوع للقائمة", callback_data="main_menu"))
+        bot.edit_message_text(text, chat_id, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
+
+    elif data == "ask_amount":
+        msg = bot.send_message(chat_id, "💵 من فضلك اكتب **المبلغ الذي قمت بتحويله** بالتحديد:")
+        bot.register_next_step_handler(msg, get_amount)
+
+def get_amount(message):
+    chat_id = message.chat.id
+    if chat_id not in user_temp_data:
+        user_temp_data[chat_id] = {}
+    user_temp_data[chat_id]["amount"] = message.text
     
-    # 1. قسم الاشتراكات
-    elif call.data == "sub_menu":
-        text = (
-            "💎 **قسم اشتراكات المواقع والبرامج:**\n\n"
-            "• **شات GPT بلس (شهر):** 1040 ج\n"
-            "• **جيميناي بلس (6 شهور):** 61 ج\n"
-            "• **جيميناي برو (18 شهر):** 162 ج\n"
-            "• **كاب كات برو (شهر):** 162 ج\n"
-            "• **كاب كات برو (7 أيام):** 61 ج\n"
-            "• **أدوبي إكسبريس (12 شهر):** 61 ج\n"
-            "• **كانفا برو (3 سنين):** 27 ج\n"
-            "• **كورسيرا بريميوم (12 شهر):** 257 ج\n\n"
-            "لطلب أي اشتراك، قم بتحويل المبلغ واضغط على حسابي لمعرفة التفاصيل."
-        )
-        markup = InlineKeyboardMarkup()
-        markup.add(InlineKeyboardButton("⬅️ رجوع للقائمة الرئيسية", callback_data="main_menu"))
-        bot.edit_message_text(text, chat_id, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
+    msg = bot.send_message(chat_id, "📱 ممتاز. الآن اكتب **رقم الهاتف المحول منه** (يجب أن يبدأ بـ 010 ويكون 11 رقم بالتحديد):")
+    bot.register_next_step_handler(msg, get_phone)
 
-    # 2. قسم SMM (التزويد)
-    elif call.data == "smm_menu":
-        text = (
-            "📈 **قسم تزويد المتابعين والتفاعل (ضمان سنة أو مدى الحياة - لكل 1000):**\n\n"
-            "• **متابعين فيسبوك:** يبدأ من 17 ج\n"
-            "• **حقق شروط ربح فيسبوك (60 ألف دقيقة):** 84 ج\n"
-            "• **متابعين تيك توك:** يبدأ من 328 ج\n"
-            "• **مشاهدات تيك توك:** 6.5 ج\n"
-            "• **متابعين إنستجرام:** يبدأ من 341 ج\n"
-            "• **مشتركين يوتيوب:** يبدأ من 2989 ج\n\n"
-            "أرسل لنا الرابط والخدمة المطلوبة عبر الواتساب بعد التحويل لتنفيذ طلبك فوراً."
-        )
-        markup = InlineKeyboardMarkup()
-        markup.add(InlineKeyboardButton("⬅️ رجوع للقائمة الرئيسية", callback_data="main_menu"))
-        bot.edit_message_text(text, chat_id, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
+def get_phone(message):
+    chat_id = message.chat.id
+    phone = message.text.strip()
+    
+    if not (phone.isdigit() and phone.startswith("010") and len(phone) == 11):
+        msg = bot.send_message(chat_id, "❌ **خطأ في الرقم!** يجب أن يتكون رقم المحول منه من 11 رقماً ويبدأ بـ **010**.\nمن فضلك اكتب الرقم بشكل صحيح مرة أخرى:")
+        bot.register_next_step_handler(msg, get_phone)
+        return
 
-    # 3. باقات الإدارة
-    elif call.data == "management_menu":
-        text = (
-            "🚀 **باقات إدارة صفحات السوشيال ميديا:**\n\n"
-            "🥉 **الباقة الأساسية:** 1800 ج/شهرياً (12 منشور، تصميم، وجدولة)\n"
-            "🥈 **الباقة المتوسطة:** 4500 ج/شهرياً (20 منشور، 4 ريلز، ستوريز، ردود)\n"
-            "🥇 **الباقة الكاملة:** 6000 ج/شهرياً (بوست يومي، 4 ريلز، ستوريز مستمرة، خدمة عملاء شاملة)\n"
-        )
-        markup = InlineKeyboardMarkup()
-        markup.add(InlineKeyboardButton("⬅️ رجوع للقائمة الرئيسية", callback_data="main_menu"))
-        bot.edit_message_text(text, chat_id, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
+    if chat_id not in user_temp_data:
+        user_temp_data[chat_id] = {}
+    user_temp_data[chat_id]["phone"] = phone
+    
+    data = user_temp_data[chat_id]
+    user_name = message.from_user.first_name
+    username = f"@{message.from_user.username}" if message.from_user.username else "لا يوجد"
+    
+    bot.reply_to(message, "✅ تم استلام طلبك وتحقق من الرقم بنجاح! جاري المراجعة وتنفيذ فوراً.")
+    
+    admin_text = (
+        "🚨 **طلب جديد مدفوع!**\n\n"
+        f"👤 العميل: {user_name} ({username})\n"
+        f"🆔 الآي دي: `{chat_id}`\n"
+        f"📌 الخدمة: {data.get('service')}\n"
+        f"💰 السعر المقرر: {data.get('price')}\n"
+        f"💵 المبلغ المحول: {data.get('amount')}\n"
+        f"📱 رقم المحول منه: {phone}"
+    )
+    
+    admin_markup = InlineKeyboardMarkup()
+    admin_markup.add(InlineKeyboardButton("💬 رد على العميل", callback_data=f"reply_to_{chat_id}"))
+    
+    try:
+        bot.send_message(ADMIN_CHAT_ID, admin_text, parse_mode="Markdown", reply_markup=admin_markup)
+    except Exception as e:
+        print(f"Admin error: {e}")
 
-    # 4. التصميم والمواقع والفيديوهات
-    elif call.data == "design_menu":
-        text = (
-            "🎨 **قسم التصميم، المواقع والفيديوهات:**\n\n"
-            "• **تصميم بوست:** 30 ج (20 ج لو أكثر من 10 بوستات)\n"
-            "• **فيديو AI (30 ثانية):** 50 ج\n"
-            "• **فيديو AI (دقيقة):** 70 ج\n"
-            "• **بوت إنشاء الفيديوهات المجاني:** [اضغط هنا](" + VEO_BOT_LINK + ")\n"
-            "• **إزالة علامة مائية لبوت الفيديوهات:** 25 ج\n"
-            "• **صفحة هبوط (Landing Page):** 50 ج\n"
-            "• **موقع شركة (5 صفحات):** يبدأ من 300 ج\n"
-            "• **متجر إلكتروني (دفع يدوي):** يبدأ من 500 ج\n"
-        )
-        markup = InlineKeyboardMarkup()
-        markup.add(InlineKeyboardButton("⬅️ رجوع للقائمة الرئيسية", callback_data="main_menu"))
-        bot.edit_message_text(text, chat_id, call.message.message_id, parse_mode="Markdown", reply_markup=markup, disable_web_page_preview=True)
-
-    # 5. حسابي والدفع
-    elif call.data == "account_menu":
-        text = (
-            "👤 **معلومات الدفع وتأكيد الطلبات:**\n\n"
-            "💳 لتحويل المبلغ عبر فودافون كاش:\n"
-            f"📱 رقم المحفظة: `{PHONE_VODAFONE_CASH}`\n\n"
-            "بعد التحويل، أرسل سكرين شوت التحويل مع تفاصيل طلبك مباشرة على رقم الدعم بالواتساب لتأكيد الطلب وتنفيذه."
-        )
-        markup = InlineKeyboardMarkup()
-        markup.add(InlineKeyboardButton("💬 التواصل مع الدعم لتأكيد الطلب", url=WHATSAPP_LINK))
-        markup.add(InlineKeyboardButton("⬅️ رجوع للقائمة الرئيسية", callback_data="main_menu"))
-        bot.edit_message_text(text, chat_id, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
-
-    # 6. الدعم الفني
-    elif call.data == "support":
-        text = (
-            "📞 **الدعم الفني والاستفسارات:**\n\n"
-            "لأي مشكلة، استفسار، أو متابعة طلب، تواصل معنا مباشرة عبر واتساب إدارة أ. محمد فاروق:"
-        )
-        markup = InlineKeyboardMarkup()
-        markup.add(InlineKeyboardButton("💬 فتح محادثة الواتساب", url=WHATSAPP_LINK))
-        markup.add(InlineKeyboardButton("⬅️ رجوع للقائمة الرئيسية", callback_data="main_menu"))
-        bot.edit_message_text(text, chat_id, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
-
-if __name__ == "__main__":
-    print("Bot is running...")
-    bot.infinity_polling()
+print("Bot is running with safe broadcast and validation...")
+bot.infinity_polling()
