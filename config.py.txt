@@ -1,0 +1,11 @@
+# إعدادات بوت Farouk AI Studio
+
+# ضع هنا الـ Token الذي استلمته من BotFather
+BOT_TOKEN = "8883224646:AAE5H6pgKhpbCSpCSwgV8dDen7BSUAo9b5Y"
+
+# أرقام التواصل والدفع
+PHONE_VODAFONE_CASH = "01025560393"
+WHATSAPP_LINK = "https://wa.me/201093001204"
+
+# رابط البوت المجاني لإنشاء الفيديوهات
+VEO_BOT_LINK = "https://t.me/AI_veo_Creator_Bot"

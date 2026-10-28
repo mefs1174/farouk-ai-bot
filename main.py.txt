@@ -1,0 +1,130 @@
+import telebot
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+from config import BOT_TOKEN, PHONE_VODAFONE_CASH, WHATSAPP_LINK, VEO_BOT_LINK
+
+bot = telebot.TeleBot(BOT_TOKEN)
+
+# --- القائمة الرئيسية ---
+def main_menu_keyboard():
+    markup = InlineKeyboardMarkup(row_width=2)
+    markup.add(
+        InlineKeyboardButton("💎 اشتراكات البرامج والمواقع", callback_data="sub_menu"),
+        InlineKeyboardButton("📈 تزويد المتابعين والتفاعل", callback_data="smm_menu")
+    )
+    markup.add(
+        InlineKeyboardButton("🚀 باقات إدارة السوشيال ميديا", callback_data="management_menu"),
+        InlineKeyboardButton("🎨 التصميم، المواقع والفيديوهات", callback_data="design_menu")
+    )
+    markup.add(
+        InlineKeyboardButton("👤 حسابي وطريقة الدفع", callback_data="account_menu"),
+        InlineKeyboardButton("📞 الدعم الفني وتواصل معنا", callback_data="support")
+    )
+    return markup
+
+@bot.message_handler(commands=['start'])
+def send_welcome(message):
+    welcome_text = (
+        "أهلاً بيك في **Farouk AI Studio** 🚀\n"
+        "وكالتك الشاملة لخدمات السوشيال ميديا، الذكاء الاصطناعي، وتطوير الأعمال.\n\n"
+        "اختر الخدمة المطلوبة من القائمة أدناه:"
+    )
+    bot.send_message(message.chat.id, welcome_text, parse_mode="Markdown", reply_markup=main_menu_keyboard())
+
+# --- معالجة الأزرار (Callbacks) ---
+@bot.callback_query_handler(func=lambda call: True)
+def callback_handler(call):
+    chat_id = call.message.chat.id
+    
+    if call.data == "main_menu":
+        bot.edit_message_text("القائمة الرئيسية:", chat_id, call.message.message_id, reply_markup=main_menu_keyboard())
+    
+    # 1. قسم الاشتراكات
+    elif call.data == "sub_menu":
+        text = (
+            "💎 **قسم اشتراكات المواقع والبرامج:**\n\n"
+            "• **شات GPT بلس (شهر):** 1040 ج\n"
+            "• **جيميناي بلس (6 شهور):** 61 ج\n"
+            "• **جيميناي برو (18 شهر):** 162 ج\n"
+            "• **كاب كات برو (شهر):** 162 ج\n"
+            "• **كاب كات برو (7 أيام):** 61 ج\n"
+            "• **أدوبي إكسبريس (12 شهر):** 61 ج\n"
+            "• **كانفا برو (3 سنين):** 27 ج\n"
+            "• **كورسيرا بريميوم (12 شهر):** 257 ج\n\n"
+            "لطلب أي اشتراك، قم بتحويل المبلغ واضغط على حسابي لمعرفة التفاصيل."
+        )
+        markup = InlineKeyboardMarkup()
+        markup.add(InlineKeyboardButton("⬅️ رجوع للقائمة الرئيسية", callback_data="main_menu"))
+        bot.edit_message_text(text, chat_id, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
+
+    # 2. قسم SMM (التزويد)
+    elif call.data == "smm_menu":
+        text = (
+            "📈 **قسم تزويد المتابعين والتفاعل (ضمان سنة أو مدى الحياة - لكل 1000):**\n\n"
+            "• **متابعين فيسبوك:** يبدأ من 17 ج\n"
+            "• **حقق شروط ربح فيسبوك (60 ألف دقيقة):** 84 ج\n"
+            "• **متابعين تيك توك:** يبدأ من 328 ج\n"
+            "• **مشاهدات تيك توك:** 6.5 ج\n"
+            "• **متابعين إنستجرام:** يبدأ من 341 ج\n"
+            "• **مشتركين يوتيوب:** يبدأ من 2989 ج\n\n"
+            "أرسل لنا الرابط والخدمة المطلوبة عبر الواتساب بعد التحويل لتنفيذ طلبك فوراً."
+        )
+        markup = InlineKeyboardMarkup()
+        markup.add(InlineKeyboardButton("⬅️ رجوع للقائمة الرئيسية", callback_data="main_menu"))
+        bot.edit_message_text(text, chat_id, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
+
+    # 3. باقات الإدارة
+    elif call.data == "management_menu":
+        text = (
+            "🚀 **باقات إدارة صفحات السوشيال ميديا:**\n\n"
+            "🥉 **الباقة الأساسية:** 1800 ج/شهرياً (12 منشور، تصميم، وجدولة)\n"
+            "🥈 **الباقة المتوسطة:** 4500 ج/شهرياً (20 منشور، 4 ريلز، ستوريز، ردود)\n"
+            "🥇 **الباقة الكاملة:** 6000 ج/شهرياً (بوست يومي، 4 ريلز، ستوريز مستمرة، خدمة عملاء شاملة)\n"
+        )
+        markup = InlineKeyboardMarkup()
+        markup.add(InlineKeyboardButton("⬅️ رجوع للقائمة الرئيسية", callback_data="main_menu"))
+        bot.edit_message_text(text, chat_id, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
+
+    # 4. التصميم والمواقع والفيديوهات
+    elif call.data == "design_menu":
+        text = (
+            "🎨 **قسم التصميم، المواقع والفيديوهات:**\n\n"
+            "• **تصميم بوست:** 30 ج (20 ج لو أكثر من 10 بوستات)\n"
+            "• **فيديو AI (30 ثانية):** 50 ج\n"
+            "• **فيديو AI (دقيقة):** 70 ج\n"
+            "• **بوت إنشاء الفيديوهات المجاني:** [اضغط هنا](" + VEO_BOT_LINK + ")\n"
+            "• **إزالة علامة مائية لبوت الفيديوهات:** 25 ج\n"
+            "• **صفحة هبوط (Landing Page):** 50 ج\n"
+            "• **موقع شركة (5 صفحات):** يبدأ من 300 ج\n"
+            "• **متجر إلكتروني (دفع يدوي):** يبدأ من 500 ج\n"
+        )
+        markup = InlineKeyboardMarkup()
+        markup.add(InlineKeyboardButton("⬅️ رجوع للقائمة الرئيسية", callback_data="main_menu"))
+        bot.edit_message_text(text, chat_id, call.message.message_id, parse_mode="Markdown", reply_markup=markup, disable_web_page_preview=True)
+
+    # 5. حسابي والدفع
+    elif call.data == "account_menu":
+        text = (
+            "👤 **معلومات الدفع وتأكيد الطلبات:**\n\n"
+            "💳 لتحويل المبلغ عبر فودافون كاش:\n"
+            f"📱 رقم المحفظة: `{PHONE_VODAFONE_CASH}`\n\n"
+            "بعد التحويل، أرسل سكرين شوت التحويل مع تفاصيل طلبك مباشرة على رقم الدعم بالواتساب لتأكيد الطلب وتنفيذه."
+        )
+        markup = InlineKeyboardMarkup()
+        markup.add(InlineKeyboardButton("💬 التواصل مع الدعم لتأكيد الطلب", url=WHATSAPP_LINK))
+        markup.add(InlineKeyboardButton("⬅️ رجوع للقائمة الرئيسية", callback_data="main_menu"))
+        bot.edit_message_text(text, chat_id, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
+
+    # 6. الدعم الفني
+    elif call.data == "support":
+        text = (
+            "📞 **الدعم الفني والاستفسارات:**\n\n"
+            "لأي مشكلة، استفسار، أو متابعة طلب، تواصل معنا مباشرة عبر واتساب إدارة أ. محمد فاروق:"
+        )
+        markup = InlineKeyboardMarkup()
+        markup.add(InlineKeyboardButton("💬 فتح محادثة الواتساب", url=WHATSAPP_LINK))
+        markup.add(InlineKeyboardButton("⬅️ رجوع للقائمة الرئيسية", callback_data="main_menu"))
+        bot.edit_message_text(text, chat_id, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
+
+if __name__ == "__main__":
+    print("Bot is running...")
+    bot.infinity_polling()
